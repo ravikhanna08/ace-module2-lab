@@ -55,12 +55,12 @@ export function getUserProfile () {
       req.app.locals.abused_ssti_bug = true
       const code = username?.substring(2, username.length - 1)
       try {
-        if (!code) {
+        if (!code || code.includes('#{') || code.includes('!{')) {
           throw new Error('Username is null')
         }
-        const singleQuoteRegex = /^'(?:[^'\\]|\\.)*'$/
-        const doubleQuoteRegex = /^"(?:[^"\\]|\\.)*"$/
-        const backtickRegex = /^`(?:[^`\\$]|\\.|\$(?!{))*`$/
+        const singleQuoteRegex = /^'(?:[^'\\#!]|\\(?!#{|!{).|#(?!{)|!(?!{))*'$/
+        const doubleQuoteRegex = /^"(?:[^"\\#!]|\\(?!#{|!{).|#(?!{)|!(?!{))*"$/
+        const backtickRegex = /^`(?:[^`\\$#!]|\\(?!#{|!{|\${).|\$(?!{)|#(?!{)|!(?!{))*`$/
         const numericRegex = /^-?\d+(?:\.\d+)?$/
         const booleanRegex = /^(?:true|false|null|undefined)$/
 
@@ -73,7 +73,11 @@ export function getUserProfile () {
         if (!isSafe) {
           throw new Error('Unsafe code execution blocked')
         }
-        username = eval(code) // eslint-disable-line no-eval
+        const evaluated = eval(code) // eslint-disable-line no-eval
+        if (typeof evaluated === 'string' && (evaluated.includes('#{') || evaluated.includes('!{'))) {
+          throw new Error('Unsafe code execution blocked')
+        }
+        username = evaluated
       } catch (err) {
         username = '\\' + username
       }
